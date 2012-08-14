@@ -1,4 +1,7 @@
+Not stable version.
+
 luaClass
 ========
 
-class for lua
+class for lua.
+
