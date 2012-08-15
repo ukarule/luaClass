@@ -60,66 +60,65 @@ function class(superClass_, newClassPath_)
 	
 	--	새로 생성한 테이블이, 다른 형으로 이미 있는 상태라면, 클래스가 두번 선언되었다든지 여튼 문제가 있으므로...
     assert(type(newClass) == 'table', 'Already exist class path: ' .. tostring(newClassPath_))
-	
-	
-	-- 일단 클래스 이름 설정
-	newClass.className = newClassPath_
-	
-	-- 인스턴스 메소드들에 모두 할당할 env 변수. 현재는 super 키워드만 사용.
-	newClass.methodEnv = {super = superClass_.__index}
-	setmetatable(newClass.methodEnv, {__index = _G, __mode='v'})
-	
-	-- "클래스" 테이블을 그 "클래스" 에서 생성한 "인스턴스" 테이블의 메타테이블로 사용한다. 그럼므로 newClass.__index 에 인스턴스 메소드를 저장한다.
-	newClass.__index = {
-		class = newClass
-	}
-	
-	-- newClass.__index 를 참조했는데도 메소드가 없을 경우, superClass_.__index 로 한 단계씩 타고 올라간다. (메소드 상속의 실질적 구현)
-	setmetatable(newClass.__index, {
-		__newindex = function() error('Forbid direct changing class.__index table.', 2) end
-		, __index = superClass_.__index or nil
-		, __mode='v'
-	})
-	
-	--	superClass_ 가 있으면, superClass_ 의 메타테이블을 곧바로 상속하고,
-	--	superClass_ 가 없더라도, 가장 기본적인 클래스 함수들은 사용 가능 하도록 넣어 준다.
-	setmetatable(newClass, getmetatable(superClass_) or {
-		---	새로운 인스턴스를 생성하려면, 그냥 클래스를 함수처럼 호출해 버리면 된다.
-		--	@example	local instance = MyClassName() --MyClassName 클래스의 새로운 인스턴스를 생성하면서 초기화 함수를 호출하고 인스턴스를 반환.
-		--	@todo	클래스 생성시, dynamic 과 strict 형태로 구분하여 생성할 수 있도록 도구를 제공하는 것은 어떤가?
-		__call = function(class_, ...)
-			assert(class_ and class_.__index, 'Invalid class_: ' .. tostring(class_))
-			
-			local instance = {}
-			
-			-- 인스턴스는 단지 메타테이블이 클래스인 테이블 이다.
-			setmetatable(instance, class_)
-			
-			if instance.initailze then
-				instance:initailze(...)
-			end
-			
-			return instance
-		end
+	if not newClass.className then
+		-- 일단 클래스 이름 설정
+		newClass.className = newClassPath_
 		
-		, __index = {
-			subclass = class
-			
-			---	클래스의 인스턴스 함수들을 설정할 때 사용하는 함수.
-			--	@example	MyClass:methods{myMethod=function(self) end, ...}	-- MyClass 라는 클래스의 인스턴스 메소드 myMethod 를 추가하였다.
-			, methods = function(class_, methods_)
-				for methodsName, method in pairs(methods_) do
-					assert(type(method) == 'function', string.format('"methods_" parameter must contains only methods: [%s] class, [%s] method name, [%s]', tostring(class_.className), tostring(methodName), tostring(method)))
-					setfenv(method, class_.methodEnv)
-					rawset(class_.__index, methodsName, method)	-- 기본적으로 클래스 생성 후, 클래스 테이블이 잠기므로 rawset() 으로 설정
-				end
-			end
+		-- 인스턴스 메소드들에 모두 할당할 env 변수. 현재는 super 키워드만 사용.
+		newClass.methodEnv = {super = superClass_.__index}
+		setmetatable(newClass.methodEnv, {__index = _G})
+		
+		-- "클래스" 테이블을 그 "클래스" 에서 생성한 "인스턴스" 테이블의 메타테이블로 사용한다. 그럼므로 newClass.__index 에 인스턴스 메소드를 저장한다.
+		newClass.__index = {
+			class = newClass
 		}
 		
-		, __tostring = function(class_) return class_.className end
-	})
+		-- newClass.__index 를 참조했는데도 메소드가 없을 경우, superClass_.__index 로 한 단계씩 타고 올라간다. (메소드 상속의 실질적 구현)
+		setmetatable(newClass.__index, {
+			__newindex = function() error('Forbid direct changing class.__index table.', 2) end
+			, __index = superClass_.__index or nil
+		})
+		
+		--	superClass_ 가 있으면, superClass_ 의 메타테이블을 곧바로 상속하고,
+		--	superClass_ 가 없더라도, 가장 기본적인 클래스 함수들은 사용 가능 하도록 넣어 준다.
+		setmetatable(newClass, getmetatable(superClass_) or {
+			---	새로운 인스턴스를 생성하려면, 그냥 클래스를 함수처럼 호출해 버리면 된다.
+			--	@example	local instance = MyClassName() --MyClassName 클래스의 새로운 인스턴스를 생성하면서 초기화 함수를 호출하고 인스턴스를 반환.
+			--	@todo	클래스 생성시, dynamic 과 strict 형태로 구분하여 생성할 수 있도록 도구를 제공하는 것은 어떤가?
+			__call = function(class_, ...)
+				assert(class_ and class_.__index, 'Invalid class_: ' .. tostring(class_))
+				
+				local instance = {}
+				
+				-- 인스턴스는 단지 메타테이블이 클래스인 테이블 이다.
+				setmetatable(instance, class_)
+				
+				if instance.initialize then
+					instance:initialize(...)
+				end
+				
+				return instance
+			end
+			
+			, __index = {
+				subclass = class
+				
+				---	클래스의 인스턴스 함수들을 설정할 때 사용하는 함수.
+				--	@example	MyClass:methods{myMethod=function(self) end, ...}	-- MyClass 라는 클래스의 인스턴스 메소드 myMethod 를 추가하였다.
+				, methods = function(class_, methods_)
+					for methodsName, method in pairs(methods_) do
+						assert(type(method) == 'function', string.format('"methods_" parameter must contains only methods: [%s] class, [%s] method name, [%s]', tostring(class_.className), tostring(methodName), tostring(method)))
+						setfenv(method, class_.methodEnv)
+						rawset(class_.__index, methodsName, method)	-- 기본적으로 클래스 생성 후, 클래스 테이블이 잠기므로 rawset() 으로 설정
+					end
+				end
+			}
+			
+			, __tostring = function(class_) return class_.className end
+		})
+		
+		print(string.format('Created class: %s', newClassPath_))
+	end
 	
-	
-	print(string.format('Created class: %s', newClassPath_))
     return newClass
 end
