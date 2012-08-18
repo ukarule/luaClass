@@ -64,7 +64,7 @@ function class(superClass_, newClassPath_)
 		-- 일단 클래스 이름 설정
 		newClass.className = newClassPath_
 		
-		-- 인스턴스 메소드들에 모두 할당할 env 변수. 현재는 super 키워드만 사용.
+		-- 인스턴스 메소드들에 모두 할당할 env 변수. 현재는 super 키워드만 사용. 궁극적으로는 전역지역을 탐색하도록 설정.
 		newClass.methodEnv = {super = superClass_.__index}
 		setmetatable(newClass.methodEnv, {__index = _G})
 		
@@ -105,12 +105,14 @@ function class(superClass_, newClassPath_)
 				
 				---	클래스의 인스턴스 함수들을 설정할 때 사용하는 함수.
 				--	@example	MyClass:methods{myMethod=function(self) end, ...}	-- MyClass 라는 클래스의 인스턴스 메소드 myMethod 를 추가하였다.
+				--	@return	사용상의 편의를 위하여, class_ 를 그대로 반환.
 				, methods = function(class_, methods_)
 					for methodsName, method in pairs(methods_) do
 						assert(type(method) == 'function', string.format('"methods_" parameter must contains only methods: [%s] class, [%s] method name, [%s]', tostring(class_.className), tostring(methodName), tostring(method)))
 						setfenv(method, class_.methodEnv)
 						rawset(class_.__index, methodsName, method)	-- 기본적으로 클래스 생성 후, 클래스 테이블이 잠기므로 rawset() 으로 설정
 					end
+					return class_
 				end
 			}
 			
